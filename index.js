@@ -7,12 +7,9 @@ module.exports = {
     moduleInfo: NodeClient.readModuleInfo(require('./package.json'))
 };
 
-NodeClient.storeSocketData("test", 123)
-
 let wallets = {};
 
 global.extWallets = {};
-
 
 global.getWallets = () => {
     let wlIds = [];
@@ -238,6 +235,4 @@ global.getDaemonStatus = async (wallet) => {
 global.storeWalletConfig = (walletData) => {
     NodeClient.storeConfig(module.exports.moduleInfo.id, 'wallets.json', walletData)
 }
-
-
 

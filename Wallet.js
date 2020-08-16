@@ -8,6 +8,7 @@ const config = require(process.cwd() + '/config.json');
 class Wallet {
     constructor(config, autoConnect = true) {
         this.config = config;
+        this.config.config_file = `${this.config.data_dir}/${this.config.coin}.conf`
         if(autoConnect) {
             this.connect();
         }
@@ -219,13 +220,14 @@ class Wallet {
     }
 
     viewLog(stream) {
+        let debugLogFile = `${this.config.data_dir}/debug.log`
         if(global.local) {
-            let command = `tail -f ${this.config.debugLogFile}`;
+            let command = `tail -f ${debugLogFile}`;
             command = `ssh ${global.remote_server} '${command}'`;
             let cmd = spawn(command, [],{shell:true});
             cmd.stdout.pipe(stream);
         } else {
-            let file = this.config.debugLogFile;
+            let file = debugLogFile;
             // let cmd = `tail -n 10 ${file}`;
             // let res = this.execShellCmd(cmd);
             // stream.write(res.stdout);
