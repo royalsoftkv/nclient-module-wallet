@@ -11,6 +11,8 @@ let wallets = {};
 
 global.extWallets = {};
 
+let walletConfigCheck = NodeClient.readConfig(module.exports.moduleInfo.id, 'wallets.json', true)
+
 global.getWallets = () => {
     let wlIds = [];
     let walletConfig = NodeClient.readConfig(module.exports.moduleInfo.id, 'wallets.json')
