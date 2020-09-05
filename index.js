@@ -1,4 +1,5 @@
 const NodeClient = require('nclient-lib');
+const Stream = require('stream');
 const Wallet = require('./Wallet');
 
 const sleep = m => new Promise(r => setTimeout(r, m));
@@ -117,7 +118,6 @@ global.getWalletStatus = async (msg) => {
         let msg = `MERGE: ${Number(balance).toFixed(2)} mn: ${enabled}/${count}`;
         return msg;
     } catch (e) {
-        console.log(e);
         return 'Error retrieving wallet info';
     }
 };
@@ -161,6 +161,7 @@ global.stopDaemonAndWait = async(wallet) => {
             try {
                 nodeInfo = await walletObj.rpcCommand("getinfo", []);
                 stopped = !((nodeInfo !== null && typeof nodeInfo !== 'undefined' && typeof nodeInfo.blocks !== 'undefined'));
+                updateDaemonStatusStreams(wallet)
             } catch (e) {
                 stopped = true;
             }
@@ -196,6 +197,7 @@ global.startDaemonAndWait = async(wallet) => {
             try {
                 nodeInfo = await walletObj.rpcCommand("getinfo", []);
                 started = ((nodeInfo !== null && typeof nodeInfo !== 'undefined' && typeof nodeInfo.blocks !== 'undefined'));
+                updateDaemonStatusStreams(wallet)
             } catch (e) {
                 started = false
             }
@@ -213,28 +215,65 @@ global.getDaemonStatus = async (wallet) => {
     }
     let nodeInfo;
     let mnSyncStatus;
-    let daemonPid;
     let mnStatus
+    let daemonPid = await walletObj.getDeamonProcessId();
     if(started) {
-        daemonPid = await walletObj.getDeamonProcessId();
         nodeInfo = await walletObj.getinfo();
         mnSyncStatus = await walletObj.getMnSyncStatus();
         mnStatus = await walletObj.getMnStatus();
     }
-    let res = {
-        started:started,
-        blocks: nodeInfo && nodeInfo.blocks,
-        mnSyncStatus:{
+    let res = {}
+    res.started = started
+    res.blocks = nodeInfo && nodeInfo.blocks
+    if(mnSyncStatus && !mnSyncStatus.error) {
+        res.mnSyncStatus = {
             IsBlockchainSynced: mnSyncStatus && mnSyncStatus.IsBlockchainSynced,
             RequestedMasternodeAssets: mnSyncStatus && mnSyncStatus.RequestedMasternodeAssets
-        },
-        daemonPid: daemonPid,
-        mnStatus
-    };
+        }
+    }
+    res.daemonPid = daemonPid
+    res.mnStatus = mnStatus
+
     return res;
 };
 
 global.storeWalletConfig = (walletData) => {
     NodeClient.storeConfig(module.exports.moduleInfo.id, 'wallets.json', walletData)
 }
+
+global.killProcess = async (name, force) => {
+    let config = findWalletConfig(name);
+    let walletObj = await getWalletAsync(name);
+    let res = await walletObj.killDaemonProcess(force)
+    let daemonPid = await walletObj.getDeamonProcessId()
+    updateDaemonStatusStreams(name)
+    return !daemonPid
+}
+
+function updateDaemonStatusStream(wallet, stream) {
+        new Promise(async resolve => {
+            let daemonStatus = await global.getDaemonStatus(wallet)
+            resolve(daemonStatus)
+        }).then(daemonStatus=>{
+        stream.push(daemonStatus)
+        })
+}
+
+function updateDaemonStatusStreams(wallet) {
+    NodeClient.updateDeviceStreamMethod('getDaemonStatusStream', (stream)=>{
+        updateDaemonStatusStream(wallet, stream)
+    })
+}
+
+NodeClient.registerDeviceStreamMethod('getDaemonStatusStream', (stream, wallet)=>{
+    stream.streamInterval = setInterval(()=>{
+        console.log('getDaemonStatusStream interval')
+        updateDaemonStatusStream(wallet, stream)
+    }, 5000)
+    updateDaemonStatusStream(wallet, stream)
+    return "OK"
+}, stream=>{
+    clearInterval(stream.streamInterval)
+})
+
 

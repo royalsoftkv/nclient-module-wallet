@@ -97,7 +97,7 @@ class Wallet {
     }
 
     async getinfo() {
-        return await this.rpcCommand("getinfo");
+        return await this.rpcCommand("getblockchaininfo");
     }
 
     async getnetworkinfo() {
@@ -129,7 +129,7 @@ class Wallet {
     }
 
     async getMnStatus() {
-        return await this.rpcCommand('masternode', ['status']);
+        return await this.rpcCommand('getmasternodestatus', []);
     }
 
     async startNode() {
@@ -139,7 +139,7 @@ class Wallet {
     startNodeWithProgress(stream) {
         this.execShellCmd(`${this.config.daemonPath} -daemon > /dev/null 2>&1 &`);
         let cnt = 0;
-        let limit = 10;
+        let limit = 100;
         let timer = setInterval(()=>{
             cnt ++;
             if(cnt > limit) {
@@ -147,7 +147,7 @@ class Wallet {
                 stream.write("Node not started");
                 stream.end();
             }
-            this.rpcCommandAsync("getinfo",[],(err, res)=>{
+            this.rpcCommandAsync("getblockchaininfo",[],(err, res)=>{
                 if(res && res.blocks) {
                     clearInterval(timer);
                     stream.write("Node started");
@@ -171,13 +171,22 @@ class Wallet {
                     stream.write("Node not stopped");
                     stream.end();
                 }
-                this.rpcCommandAsync("getinfo",[],(err, res)=>{
+                this.rpcCommandAsync("geblockchaininfo",[],(err, res)=>{
                     if(res && res.blocks) {
                         stream.write("Wait for node to stop");
                     } else {
+                        new Promise(async resolve => {
+                            let daemonPid = await this.getDeamonProcessId();
+                            resolve(daemonPid)
+                        }).then((daemonPid)=>{
                         clearInterval(timer);
+                            if(daemonPid) {
+                                stream.write("Node can not be stopped");
+                            } else {
                         stream.write("Node stopped");
+                            }
                         stream.end();
+                        })
                     }
                 })
             }, 3000);
@@ -238,7 +247,7 @@ class Wallet {
     async isStarted() {
         let started;
         try {
-            let nodeInfo = await this.rpcCommand("getinfo", []);
+            let nodeInfo = await this.rpcCommand("getblockchaininfo", []);
             started = ((nodeInfo !== null && typeof nodeInfo !== 'undefined' && typeof nodeInfo.blocks !== 'undefined'));
         } catch (e) {
             started = false

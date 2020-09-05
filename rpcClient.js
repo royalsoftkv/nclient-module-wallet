@@ -47,16 +47,16 @@ class RpcClient {
         // }
 
         return new Promise((resolve, reject) => {
-        if(typeof params === 'undefined') {
-            params = [];
-        }
+            if(typeof params === 'undefined') {
+                params = [];
+            }
             this.client.call(method, params, function(err, result){
                 let res;
                 if(err) {
                     res = {error: {message: err}, result: result};
                 } else {
                     res = result;
-        }
+                }
                 resolve(res);
             })
         });
