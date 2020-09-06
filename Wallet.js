@@ -100,6 +100,10 @@ class Wallet {
         return await this.rpcCommand("getblockchaininfo");
     }
 
+    async getbalance() {
+        return await this.rpcCommand("getbalance");
+    }
+
     async getnetworkinfo() {
         return await this.rpcCommand("getnetworkinfo");
     }

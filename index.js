@@ -103,11 +103,11 @@ global.getBalance = async (msg) => {
     // NodeClient.sendRequest({to: to, method: callback, payload: balance});
 };
 
-global.getWalletStatus = async (msg) => {
+global.getWalletStatus = async (params) => {
     try{
-        let info = await getWallet("merge-wallet").getinfo();
-        let balance = info.balance;
-        let masternodes = await getWallet("merge-wallet").rpcCommand("masternode",["list-conf"]);
+        let wallet = params.wallet
+        let balance = await getWallet(wallet).getbalance();
+        let masternodes = await getWallet(wallet).rpcCommand("masternode",["list-conf"]);
         let count = Object.keys(masternodes).length;
         let enabled = 0;
         for(let i in masternodes) {
