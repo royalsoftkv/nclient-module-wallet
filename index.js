@@ -216,15 +216,18 @@ global.getDaemonStatus = async (wallet) => {
     let nodeInfo;
     let mnSyncStatus;
     let mnStatus
+    let walletInfo
     let daemonPid = await walletObj.getDeamonProcessId();
     if(started) {
         nodeInfo = await walletObj.getinfo();
+        walletInfo = await walletObj.getWalletInfo();
         mnSyncStatus = await walletObj.getMnSyncStatus();
         mnStatus = await walletObj.getMnStatus();
     }
     let res = {}
     res.started = started
     res.blocks = nodeInfo && nodeInfo.blocks
+    res.walletInfo = walletInfo
     if(mnSyncStatus && !mnSyncStatus.error) {
         res.mnSyncStatus = {
             IsBlockchainSynced: mnSyncStatus && mnSyncStatus.IsBlockchainSynced,
