@@ -2,7 +2,7 @@
   "name": "nclient-module-wallet",
   "id": "wallet",
   "title": "Wallet",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Module for communicating with crypto wallet",
   "main": "index.js",
   "scripts": {

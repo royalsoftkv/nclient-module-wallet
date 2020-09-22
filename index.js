@@ -30,7 +30,7 @@ global.getWallets = () => {
     return walletConfig;
 };
 
-function getWallet(name) {
+global.getWallet = (name) => {
     let config;
     let walletConfig = NodeClient.readConfig(module.exports.moduleInfo.id, 'wallets.json')
     for(let i in walletConfig) {
@@ -74,28 +74,28 @@ global.rpcCommand = async (msg) => {
     let method = msg.method;
     let params = msg.params;
     let sel_wallet = msg.wallet;
-    let res = await getWallet(sel_wallet).rpcCommand(method, params);
+    let res = await global.getWallet(sel_wallet).rpcCommand(method, params);
     return res;
 };
 
 global.startDaemon = (stream, params) => {
     let sel_wallet = params.wallet;
-    getWallet(sel_wallet).startNodeWithProgress(stream);
+    global.getWallet(sel_wallet).startNodeWithProgress(stream);
 };
 
 global.stopDaemon = (stream, params) => {
     let sel_wallet = params.wallet;
-    getWallet(sel_wallet).stopNodeWithProgress(stream);
+    global.getWallet(sel_wallet).stopNodeWithProgress(stream);
 };
 
 global.viewLog = (stream, params) => {
     let sel_wallet = params.wallet;
-    getWallet(sel_wallet).viewLog(stream);
+    global.getWallet(sel_wallet).viewLog(stream);
 };
 
 global.getBalance = async (msg) => {
     let sel_wallet = msg.wallet;
-    let info = await getWallet(sel_wallet).getinfo();
+    let info = await global.getWallet(sel_wallet).getinfo();
     let balance = info.balance;
     // let callback = msg.callback;
     // let to = msg.from;
@@ -106,8 +106,8 @@ global.getBalance = async (msg) => {
 global.getWalletStatus = async (params) => {
     try{
         let wallet = params.wallet
-        let balance = await getWallet(wallet).getbalance();
-        let masternodes = await getWallet(wallet).rpcCommand("masternode",["list-conf"]);
+        let balance = await global.getWallet(wallet).getbalance();
+        let masternodes = await global.getWallet(wallet).rpcCommand("masternode",["list-conf"]);
         let count = Object.keys(masternodes).length;
         let enabled = 0;
         for(let i in masternodes) {
@@ -125,7 +125,7 @@ global.getWalletStatus = async (params) => {
 global.checkWallet = async (wallet) => {
     let config = findWalletConfig(wallet);
     let command = `ps uax | grep '${config.daemonPath}'`;
-    let res = await (getWallet(wallet).execShellCmd(command));
+    let res = await (global.getWallet(wallet).execShellCmd(command));
     res = res.stdout;
     let lines = res.split("\n");
     for(let i in lines) {
@@ -184,7 +184,7 @@ global.startDaemonAndWait = async(wallet) => {
     } catch (e) {
         started  = false;
     }
-    if(!started) {
+    if(!started && walletObj) {
         let res = await walletObj.execShellCmd(`${walletObj.config.daemonPath} -daemon > /dev/null 2>&1 &`);
         await sleep(5000);
         let scnt = 0;
