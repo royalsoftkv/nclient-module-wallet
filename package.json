@@ -1,18 +1,16 @@
 {
-  "name": "nclient-module-wallet",
-  "id": "wallet",
-  "title": "Wallet",
-  "version": "1.0.10",
-  "description": "Module for communicating with crypto wallet",
-  "main": "index.js",
-  "scripts": {
-    "build": "rm -f nclient-module-wallet-*.tgz && npm pack && cp nclient-module-wallet-*.tgz ../../ncloud/public/modules/nclient-module-wallet.tgz"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "ini": "^1.3.5",
-    "nclient-lib": "git+https://github.com/royalsoftkv/nclient-lib.git",
-    "node-ssh-forward": "^0.7.2"
-  }
+    "name": "nclient-module-wallet",
+    "id": "wallet",
+    "title": "Wallet",
+    "version": "1.0.38",
+    "description": "Module for communicating with crypto wallet",
+    "main": "index.js",
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "ini": "^1.3.5",
+        "nclient-lib": "http://159.69.2.203:3030/nclient-lib.tgz",
+        "node-ssh-forward": "^0.7.2"
+    },
+    "ncloud-type": "module"
 }

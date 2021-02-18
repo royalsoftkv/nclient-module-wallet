@@ -3,67 +3,41 @@ const { exec } = require('child_process');
 const util = require('util');
 
 class RpcClient {
-    constructor() {
-
-    }
-
-    async setup(rpcHost, rpcPort, rpcUser, rpcPass) {
-
-        //console.log(`Connecting RPC client host = ${rpcHost} port=${rpcPort}`);
-        try{
-            this.client = new Client({
-                host: rpcHost, port: rpcPort, protocol: 'http', onResponse: function (buffer) {
-                    let cnt = 0;
-                    buffer = buffer.replace(/("masternode":)/g, function (match, contents, offset, input_string) {
-                        cnt++;
-                        return `"masternode_${cnt}":`;
-                    });
-                    return buffer;
-                }
-            });
-            this.client.setBasicAuth(rpcUser, rpcPass);
-        } catch (e) {
-            console.log(e);
-        }
+    constructor(config) {
+        this.config = config
+        this.timeout = config.rpc_timeout || 3000
     }
 
     async rpcCommand(method, params) {
-        //console.log(`\tExexuting RPC command ${method} ${params}`);
-        //     if(typeof params === 'undefined') {
-        //         params = [];
-        //     }
-        // try {
-        //     let res = await util.promisify(this.client.call).bind(this.client)(method, params);
-        //     return res;
-        // } catch (e) {
-        //     let message;
-        //     if(typeof e === 'string') {
-        //         message = e;
-        //     } else {
-        //         message = e.message;
-        //     }
-        //     let res = {error: {message: message}};
-        //     return res;
-        // }
-
-        return new Promise((resolve, reject) => {
-            if(typeof params === 'undefined') {
-                params = [];
-            }
-            this.client.call(method, params, function(err, result){
-                let res;
-                if(err) {
-                    res = {error: {message: err}, result: result};
-                } else {
-                    res = result;
-                }
-                resolve(res);
-            })
-        });
+        return await new Promise((resolve, reject) => {
+            this.rpcCommandAsync(method, params, resolve)
+        })
     }
 
     rpcCommandAsync(method, params, cb) {
-        this.client.call(method, params, cb);
+        let coinCli = this.config.cliPath
+        let paramsList = ""
+        if(params && params.length > 0) {
+            paramsList = params.join(" ")
+        }
+        let cmd = `${coinCli} ${method} ${paramsList}`
+        console.log("Execute cli command ",cmd)
+        if(global.local) {
+            cmd = `ssh 3 ${global.remote_server} ${cmd}`;
+        }
+        exec(cmd, {timeout: this.timeout}, (err, stdout, stderr) => {
+            let res;
+            if(err) {
+                res = {error: {message: err}, result: stderr};
+            } else {
+                try {
+                    res = JSON.parse(stdout);
+                } catch (e) {
+                    res = stdout
+                }
+            }
+            cb(res);
+        });
     }
 }
 

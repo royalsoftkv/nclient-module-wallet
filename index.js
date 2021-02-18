@@ -1,6 +1,7 @@
 const NodeClient = require('nclient-lib');
 const Stream = require('stream');
 const Wallet = require('./Wallet');
+const MnChecker = require('./MnChecker')
 
 const sleep = m => new Promise(r => setTimeout(r, m));
 
@@ -12,11 +13,20 @@ let wallets = {};
 
 global.extWallets = {};
 
-let walletConfigCheck = NodeClient.readConfig(module.exports.moduleInfo.id, 'wallets.json', true)
+setTimeout(()=>{
+    let walletConfigCheck = NodeClient.readConfig(module.exports.moduleInfo.id, 'config.json', true)
+    for (let i in walletConfigCheck) {
+        let wallet = walletConfigCheck[i]
+        if(wallet.mn_checker) {
+            new MnChecker(wallet).start()
+        }
+    }
+}, 10000)
 
-global.getWallets = () => {
+
+global.getWallets = (params, cb) => {
     let wlIds = [];
-    let walletConfig = NodeClient.readConfig(module.exports.moduleInfo.id, 'wallets.json')
+    let walletConfig = NodeClient.readConfig(module.exports.moduleInfo.id, 'config.json')
     for(let i in walletConfig) {
         wlIds.push(walletConfig[i].name);
     }
@@ -27,12 +37,16 @@ global.getWallets = () => {
         wlIds.push(i);
         walletConfig.push(global.extWallets[i]);
     }
-    return walletConfig;
+    if(typeof cb === "function") {
+    cb(walletConfig)
+	} else {
+		return walletConfig
+	}
 };
 
-global.getWallet = (name) => {
+global.getWallet = (name, cb) => {
     let config;
-    let walletConfig = NodeClient.readConfig(module.exports.moduleInfo.id, 'wallets.json')
+    let walletConfig = NodeClient.readConfig(module.exports.moduleInfo.id, 'config.json')
     for(let i in walletConfig) {
         if(walletConfig[i].name===name) {
             config = walletConfig[i];
@@ -44,15 +58,19 @@ global.getWallet = (name) => {
         let wallet = new Wallet(config);
         wallets[name]=wallet;
     }
-    return wallets[name];
+    if(typeof cb === "function") {
+    cb( wallets[name])
+	} else {
+		return wallets[name]
+	}
+
 }
 
 async function getWalletAsync(name) {
     let config = findWalletConfig(name);
     if(config) {
         if(typeof wallets[name] === 'undefined') {
-            let wallet = new Wallet(config, false);
-            await wallet.connect();
+            let wallet = new Wallet(config);
             wallets[name]=wallet;
         }
         return wallets[name];
@@ -100,7 +118,6 @@ global.getBalance = async (msg) => {
     // let callback = msg.callback;
     // let to = msg.from;
     return balance;
-    // NodeClient.sendRequest({to: to, method: callback, payload: balance});
 };
 
 global.getWalletStatus = async (params) => {
@@ -161,7 +178,7 @@ global.stopDaemonAndWait = async(wallet) => {
             try {
                 nodeInfo = await walletObj.rpcCommand("getinfo", []);
                 stopped = !((nodeInfo !== null && typeof nodeInfo !== 'undefined' && typeof nodeInfo.blocks !== 'undefined'));
-                updateDaemonStatusStreams(wallet)
+                // updateDaemonStatusStreams(wallet)
             } catch (e) {
                 stopped = true;
             }
@@ -231,7 +248,16 @@ global.getDaemonStatus = async (wallet) => {
     if(mnSyncStatus && !mnSyncStatus.error) {
         res.mnSyncStatus = {
             IsBlockchainSynced: mnSyncStatus && mnSyncStatus.IsBlockchainSynced,
-            RequestedMasternodeAssets: mnSyncStatus && mnSyncStatus.RequestedMasternodeAssets
+        }
+        if(mnSyncStatus.RequestedMasternodeAssets) {
+            res.mnSyncStatus.RequestedMasternodeAssets = mnSyncStatus.RequestedMasternodeAssets
+        } else if (mnSyncStatus.AssetID) {
+            res.mnSyncStatus.RequestedMasternodeAssets = mnSyncStatus.AssetID
+        }
+        if(typeof mnSyncStatus.RequestedMasternodeAttempt !== 'undefined' && String(mnSyncStatus.RequestedMasternodeAttempt).length > 0) {
+            res.mnSyncStatus.RequestedMasternodeAttempt = mnSyncStatus.RequestedMasternodeAttempt
+        } else if (typeof mnSyncStatus.Attempt !== 'undefined' && String(mnSyncStatus.Attempt).length > 0) {
+            res.mnSyncStatus.RequestedMasternodeAttempt = mnSyncStatus.Attempt
         }
     }
     res.daemonPid = daemonPid
@@ -240,11 +266,13 @@ global.getDaemonStatus = async (wallet) => {
     return res;
 };
 
-global.storeWalletConfig = (walletData) => {
-    NodeClient.storeConfig(module.exports.moduleInfo.id, 'wallets.json', walletData)
+global.storeWalletConfig = (walletData, cb) => {
+    NodeClient.storeConfig(module.exports.moduleInfo.id, 'config.json', walletData)
 }
 
-global.killProcess = async (name, force) => {
+global.killProcess = async (params) => {
+    let name = params.wallet
+    let force = params.force
     let config = findWalletConfig(name);
     let walletObj = await getWalletAsync(name);
     let res = await walletObj.killDaemonProcess(force)
@@ -258,25 +286,26 @@ function updateDaemonStatusStream(wallet, stream) {
             let daemonStatus = await global.getDaemonStatus(wallet)
             resolve(daemonStatus)
         }).then(daemonStatus=>{
-        stream.push(daemonStatus)
+            stream && stream.write(daemonStatus)
         })
 }
 
 function updateDaemonStatusStreams(wallet) {
-    NodeClient.updateDeviceStreamMethod('getDaemonStatusStream', (stream)=>{
-        updateDaemonStatusStream(wallet, stream)
-    })
+    // NodeClient.updateNodeStream('getDaemonStatusStream', (stream)=>{
+    //     updateDaemonStatusStream(wallet, stream)
+    // })
 }
 
-NodeClient.registerDeviceStreamMethod('getDaemonStatusStream', (stream, wallet)=>{
-    stream.streamInterval = setInterval(()=>{
-        console.log('getDaemonStatusStream interval')
+NodeClient.registerNodeStream('getDaemonStatusStream', (stream, wallet, ack)=>{
+    this.streamInterval = setInterval(()=>{
+        //console.log('getDaemonStatusStream interval')
         updateDaemonStatusStream(wallet, stream)
     }, 5000)
     updateDaemonStatusStream(wallet, stream)
-    return "OK"
+    ack("START getDaemonStatusStream")
 }, stream=>{
-    clearInterval(stream.streamInterval)
+	console.log("STOP getDaemonStatusStream")
+    clearInterval(this.streamInterval)
 })
 
 

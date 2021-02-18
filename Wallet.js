@@ -1,69 +1,16 @@
 const RpcClient  = require('./rpcClient');
 const NodeClient  = require('nclient-lib');
 const { exec, spawn } = require('child_process');
-const { SSHConnection } = require('node-ssh-forward');
 const ini = require('ini');
 const config = require(process.cwd() + '/config.json');
 
 class Wallet {
-    constructor(config, autoConnect = true) {
+    constructor(config) {
         this.config = config;
-        this.config.config_file = `${this.config.data_dir}/${this.config.coin}.conf`
-        if(autoConnect) {
-            this.connect();
+        if(!this.config.config_file){
+            this.config.config_file = `${this.config.data_dir}/${this.config.coin}.conf`
         }
-    }
-
-    async connect() {
-        this.rpcClient = new RpcClient();
-
-        let content = await this.execShellCmd(`cat ${this.config.config_file}`);
-        let iniData = ini.parse(content.stdout);
-        let rpcHost = iniData.rpchost || 'localhost';
-        let rpcPort = iniData.rpcport;
-        if(global.local) {
-            await this.localForwarPort(rpcPort);
-        }
-
-        await this.rpcClient.setup(rpcHost, rpcPort, iniData.rpcuser, iniData.rpcpassword);
-    }
-
-    async localForwarPort(rpcPort) {
-
-        let res = await new Promise(resolve => {
-            const net = require('net');
-            let tester = net.createServer()
-                .once('error', function (err) {
-                    resolve(err.code === 'EADDRINUSE');
-                })
-                .once('listening', function () {
-                    tester.once('close', function () {
-                        resolve(false);
-                    })
-                        .close()
-                })
-                .listen(rpcPort)
-        });
-
-        if(res) {
-            return;
-        }
-
-        const sshConnection = new SSHConnection({
-            endHost: global.remote_ip,
-            username: 'root',
-        });
-        try{
-            await sshConnection.forward({
-                fromPort: rpcPort,
-                toPort: rpcPort,
-                toHost: '127.0.0.1'
-            }).catch((err)=>{
-                console.log(`Error ${err}`);
-            })
-        } catch (e) {
-            console.log(e);
-        }
+        this.rpcClient = new RpcClient(this.config);
     }
 
     async execShellCmd(cmd) {
@@ -128,6 +75,14 @@ class Wallet {
         return await this.rpcCommand("masternode",["list-conf"]);
     }
 
+    async getMasternodeStatus(txHash) {
+        return await this.rpcCommand('listmasternodes', [txHash])
+    }
+
+    async startMasternodeAlias(alias) {
+        return await this.rpcCommand('startmasternode', ['alias', false, alias])
+    }
+
     async stopNode() {
         return await this.rpcCommand("stop");
     }
@@ -137,7 +92,10 @@ class Wallet {
     }
 
     async getMnStatus() {
-        return await this.rpcCommand('getmasternodestatus', []);
+        let res = await this.rpcCommand('getmasternodestatus', []);
+        if(res.error) {
+            return await this.rpcCommand('masternode', ['status']);
+        }
     }
 
     async startNode() {
