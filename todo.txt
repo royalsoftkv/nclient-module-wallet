@@ -1,0 +1,4 @@
+- Custom tool menu for coin - for example for Merge - Restore blockchian
+- For daemon module - add check if there is some action that prevents check - for example when restoring bc put some lock file to know deamon to stop checking that process - can be used for pausing too
+- Tail log - limit numvber of lines to avoid memory issue, sloer than displaying - compare logs on server and on client
+
