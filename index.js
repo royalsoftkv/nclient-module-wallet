@@ -88,6 +88,7 @@ function findWalletConfig(name) {
     }
 }
 
+//TODO: insecure
 global.rpcCommand = async (msg) => {
     let method = msg.method;
     let params = msg.params;

@@ -72,7 +72,12 @@ class Wallet {
     }
 
     async masternodeListConf() {
-        return await this.rpcCommand("masternode",["list-conf"]);
+        let res =  await this.rpcCommand("masternode",["list-conf"]);
+        if(res.error) {
+            return await this.rpcCommand('listmasternodeconf', []);
+        } else {
+            return res
+        }
     }
 
     async getMasternodeStatus(txHash) {
@@ -95,6 +100,8 @@ class Wallet {
         let res = await this.rpcCommand('getmasternodestatus', []);
         if(res.error) {
             return await this.rpcCommand('masternode', ['status']);
+        } else {
+            return res
         }
     }
 

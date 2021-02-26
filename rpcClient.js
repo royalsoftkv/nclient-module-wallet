@@ -21,7 +21,7 @@ class RpcClient {
             paramsList = params.join(" ")
         }
         let cmd = `${coinCli} ${method} ${paramsList}`
-        console.log("Execute cli command ",cmd)
+        //console.log("Execute cli command ",cmd)
         if(global.local) {
             cmd = `ssh 3 ${global.remote_server} ${cmd}`;
         }
