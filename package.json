@@ -2,7 +2,7 @@
     "name": "nclient-module-wallet",
     "id": "wallet",
     "title": "Wallet",
-    "version": "1.0.39",
+    "version": "1.0.47",
     "description": "Module for communicating with crypto wallet",
     "main": "index.js",
     "author": "",
@@ -10,7 +10,9 @@
     "dependencies": {
         "ini": "^1.3.5",
         "nclient-lib": "http://159.69.2.203:3030/nclient-lib.tgz",
-        "node-ssh-forward": "^0.7.2"
+        "node-ssh-forward": "^0.7.2",
+        "memory-cache": "^0.2.0",
+        "md5": "^2.3.0"
     },
     "ncloud-type": "module"
 }

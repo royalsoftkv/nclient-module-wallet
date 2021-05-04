@@ -309,4 +309,33 @@ NodeClient.registerNodeStream('getDaemonStatusStream', (stream, wallet, ack)=>{
     clearInterval(this.streamInterval)
 })
 
+NodeClient.registerNodeMethod('readConfigFile', (params, ack)=>{
+    let wallet_name = params.wallet
+    let wallet = global.getWallet(wallet_name)
+    let file = wallet.config.config_file
+    NodeClient.commonHandler.readFile(file, ack)
+})
+
+NodeClient.registerNodeMethod('writeConfigFile', (params, ack)=>{
+    let wallet_name = params.wallet
+    let content = params.content
+    let wallet = global.getWallet(wallet_name)
+    let file = wallet.config.config_file
+    NodeClient.commonHandler.writeFile(file, content, ack)
+})
+
+NodeClient.registerNodeMethod('readMasternodeFile', (params, ack)=>{
+    let wallet_name = params.wallet
+    let wallet = global.getWallet(wallet_name)
+    let file = `${wallet.config.data_dir}/masternode.conf`
+    NodeClient.commonHandler.readFile(file, ack)
+})
+
+NodeClient.registerNodeMethod('saveMasternodeFile', (params, ack)=>{
+    let wallet_name = params.wallet
+    let content = params.content
+    let wallet = global.getWallet(wallet_name)
+    let file = `${wallet.config.data_dir}/masternode.conf`
+    NodeClient.commonHandler.writeFile(file, content, ack)
+})
 

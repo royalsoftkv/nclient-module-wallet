@@ -14,6 +14,9 @@ class Wallet {
     }
 
     async execShellCmd(cmd) {
+        if(cmd === ``) {
+            console.log(cmd)
+        }
         if(global.local) {
             cmd = `ssh ${global.remote_server} ${cmd}`;
         }
@@ -43,8 +46,12 @@ class Wallet {
         return await this.rpcCommand("help");
     }
 
-    async getinfo() {
+    async getblockchaininfo() {
         return await this.rpcCommand("getblockchaininfo");
+    }
+
+    async getinfo() {
+        return await this.rpcCommand("getinfo");
     }
 
     async getWalletInfo() {
@@ -115,14 +122,18 @@ class Wallet {
         let limit = 100;
         let timer = setInterval(()=>{
             cnt ++;
+            console.log(`Node check start times ${cnt}`)
             if(cnt > limit) {
                 clearInterval(timer);
+                console.error(`Node not started`)
                 stream.write("Node not started");
                 stream.end();
             }
-            this.rpcCommandAsync("getblockchaininfo",[],(err, res)=>{
-                if(res && res.blocks) {
+            this.rpcCommandAsync("getinfo",[],(res)=>{
+                console.log(`Reading node info`, res)
+                if(res && res.blocks && res.blocks > 0) {
                     clearInterval(timer);
+                    console.log(`Node started`)
                     stream.write("Node started");
                     stream.end();
                 } else {
@@ -144,7 +155,7 @@ class Wallet {
                     stream.write("Node not stopped");
                     stream.end();
                 }
-                this.rpcCommandAsync("geblockchaininfo",[],(err, res)=>{
+                this.rpcCommandAsync("getinfo",[],(err, res)=>{
                     if(res && res.blocks) {
                         stream.write("Wait for node to stop");
                     } else {
@@ -220,8 +231,8 @@ class Wallet {
     async isStarted() {
         let started;
         try {
-            let nodeInfo = await this.rpcCommand("getblockchaininfo", []);
-            started = ((nodeInfo !== null && typeof nodeInfo !== 'undefined' && typeof nodeInfo.blocks !== 'undefined'));
+            let nodeInfo = await this.rpcCommand("getinfo", []);
+            started = ((nodeInfo !== null && typeof nodeInfo !== 'undefined' && typeof nodeInfo.blocks !== 'undefined' && nodeInfo.blocks > 0));
         } catch (e) {
             started = false
         }
