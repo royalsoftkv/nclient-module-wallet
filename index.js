@@ -83,7 +83,8 @@ function findWalletConfig(name) {
     for(let i in walletConfig) {
         if(walletConfig[i].name===name) {
             config = walletConfig[i];
-            return config;
+            let w = new Wallet(config)
+            return w.config
         }
     }
 }

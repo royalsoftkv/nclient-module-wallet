@@ -1,6 +1,7 @@
 const MnChecker = require("./MnChecker")
 const NodeClient = require("nclient-lib")
 const os = require("os")
+const sleep = m => new Promise(r => setTimeout(r, m));
 global.local = os.hostname()==="spectre"
 global.walletNode = "wallet"
 
@@ -12,8 +13,11 @@ NodeClient.onSocketEvent('client_connected',  async () => {
     }
     executed = true
 
-    let mnc = new MnChecker({name:'merge-wallet'})
-    await mnc.check()
+    let mnc = new MnChecker({name:'allforonebusiness'})
+    while(true) {
+        await mnc.check()
+        await sleep(30000)
+    }
 
     process.exit()
 })

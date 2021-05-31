@@ -7,6 +7,24 @@ const config = require(process.cwd() + '/config.json');
 class Wallet {
     constructor(config) {
         this.config = config;
+        if(!this.config.coin) {
+            let parts = this.config.name.split("-")
+            this.config.coin = parts[0]
+        }
+        if(!this.config.data_dir) {
+            let parts = this.config.name.split("-")
+            let node = parts[1]
+            this.config.data_dir = `/root/${this.config.coin}/${node}`
+        }
+        if(!this.config.daemonPath) {
+            this.config.daemonPath = `/root/${this.config.coin}/${this.config.coin}d -datadir=${this.config.data_dir}`
+        }
+        if(!this.config.cliPath) {
+            this.config.cliPath = `/root/${this.config.coin}/${this.config.coin}-cli -datadir=${this.config.data_dir}`
+        }
+        if(!this.config.debugLogFile) {
+            this.config.debugLogFile = `${this.config.data_dir}/debug.log`
+        }
         if(!this.config.config_file){
             this.config.config_file = `${this.config.data_dir}/${this.config.coin}.conf`
         }

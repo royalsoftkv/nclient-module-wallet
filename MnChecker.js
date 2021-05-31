@@ -27,7 +27,7 @@ class MnChecker {
         this.log(`Starting mnChecker for wallet ${this.wallet_name}`)
         setInterval(async ()=>{
             await this.check()
-        }, 1000*30)
+        }, 1000*60)
 
     }
 
@@ -76,6 +76,61 @@ class MnChecker {
             let masternodeConf = masternodeListConf[i]
             let log = `Check masternode ${this.wallet_name}-${masternodeConf.alias} status=${masternodeConf.status}`
             //console.log(`masternode ${masternodeConf.alias} status=${masternodeConf.status} masternodeConf=${JSON.stringify(masternodeConf)}`)
+
+            if(masternodeConf.status === 'ACTIVE' || masternodeConf.status === 'EXPIRED'
+                || masternodeConf.status === 'MISSING') {
+                let mn = walletConfig.masternodes[masternodeConf.alias]
+                let res = await NodeClient.asyncExecNodeMethod(mn.server, "rpcCommand", {
+                    method: "getmasternodestatus",
+                    params: [],
+                    wallet: mn.wallet
+                })
+                if(res.error && res.result === 'error: couldn\'t connect to server\n') {
+                    log += ` - not running`
+                    if(masternodeConf.status === 'EXPIRED' || masternodeConf.status === 'MISSING') {
+						let res = await this.startMasternodeAlias(masternodeConf.alias)
+						if ((res.detail && res.detail[0].result === 'successful') || (res.result && res.result === 'success')) {
+							log += ' - started successful'
+						} else {
+							log += ' - NOT STARTED'
+						}
+					}
+                } else if (res.status === 4) {
+                    log += ` - already started`
+                } else if (res.error && (res.result === 'error: {"code":-1,"message":"Active Masternode not initialized."}\n' ||
+					res.result === 'error: {"code":-1,"message":"Masternode not found in the list of available masternodes. Current status: Not capable masternode: Hot node, waiting for remote activation."}\n'
+				)) {
+                    let res = await this.startMasternodeAlias(masternodeConf.alias)
+                    if ((res.detail && res.detail[0].result === 'successful') || (res.result && res.result === 'success')) {
+                        log += ' - started successful'
+                    } else {
+                        log += ' - NOT STARTED'
+                    }
+                } else {
+                    console.log(res)
+                }
+            } else if(masternodeConf.status === 'ENABLED') {
+                log += ` - OK`
+            // } else if(masternodeConf.status === 'EXPIRED') {
+            //     let res = await this.startMasternodeAlias(masternodeConf.alias)
+            //     if ((res.detail && res.detail[0].result === 'successful') || (res.result && res.result === 'success')) {
+            //         log += ' - started successful'
+            //     } else {
+            //         log += ' - NOT STARTED'
+            //     }
+            // } else if(masternodeConf.status === 'MISSING') {
+            //     let res = await this.startMasternodeAlias(masternodeConf.alias)
+            //     if ((res.detail && res.detail[0].result === 'successful') || (res.result && res.result === 'success')) {
+            //         log += ' - started successful'
+            //     } else {
+            //         log += ' - NOT STARTED'
+            //     }
+            } else {
+                console.log(masternodeConf)
+            }
+            this.log(log)
+
+            /*continue
             if(masternodeConf.status === 'ENABLED' || masternodeConf.status === 'ACTIVE') {
                 // let mnStatus = await this.walletCli.getMasternodeStatus(masternodeConf.txHash)
                 let mnStatus = await this.getMasternodeStatus(masternodeConf.txHash)
@@ -97,7 +152,7 @@ class MnChecker {
                 // console.log("masternode status", res)
                 if ((res.status && res.status != 4)
                     || (res.result && res.result === 'error: {"code":-1,"message":"Active Masternode not initialized."}\n')
-                    || (res.result && res.result === 'error: {"code":-1,"message":"Masternode not found in the list of available masternodes. Current status: Not capable masternode: Hot node, waiting for remote activation."}\n')) {
+                    || (res.result && res.result === 'error: {"code":-1,"message":"Masternode not found in the list of available masternodes. Current status: Not capable masternode: Hot node, waiting for remote activation."}\n') || true) {
                     log += ' - need to be started'
                     let res = await this.startMasternodeAlias(masternodeConf.alias)
                     console.log("res", res)
@@ -112,7 +167,7 @@ class MnChecker {
             } else {
                 log += ' - ok'
             }
-            this.log(log)
+            this.log(log)*/
         }
     }
 
