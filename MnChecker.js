@@ -85,7 +85,9 @@ class MnChecker {
                     params: [],
                     wallet: mn.wallet
                 })
-                if(res.error && res.result === 'error: couldn\'t connect to server\n') {
+                if((res.error && res.result === 'error: couldn\'t connect to server\n')
+					|| (res.error && res.error.message.includes("ECONNREFUSED"))
+				) {
                     log += ` - not running`
                     if(masternodeConf.status === 'EXPIRED' || masternodeConf.status === 'MISSING') {
 						let res = await this.startMasternodeAlias(masternodeConf.alias)
@@ -99,15 +101,20 @@ class MnChecker {
                     log += ` - already started`
                 } else if (res.error && (res.result === 'error: {"code":-1,"message":"Active Masternode not initialized."}\n' ||
 					res.result === 'error: {"code":-1,"message":"Masternode not found in the list of available masternodes. Current status: Not capable masternode: Hot node, waiting for remote activation."}\n'
+					||
+					res.error.message === "Masternode not found in the list of available masternodes. Current status: Not capable masternode: Hot node, waiting for remote activation."
+					||
+					res.error.message === "Active Masternode not initialized."
 				)) {
                     let res = await this.startMasternodeAlias(masternodeConf.alias)
                     if ((res.detail && res.detail[0].result === 'successful') || (res.result && res.result === 'success')) {
                         log += ' - started successful'
                     } else {
+						log += " res=" + JSON.stringify(res)
                         log += ' - NOT STARTED'
                     }
                 } else {
-                    console.log(res)
+                    log += " UNKNOWN reponse " + JSON.stringify(res)
                 }
             } else if(masternodeConf.status === 'ENABLED') {
                 log += ` - OK`

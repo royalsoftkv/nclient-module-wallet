@@ -3,10 +3,12 @@ const NodeClient  = require('nclient-lib');
 const { exec, spawn } = require('child_process');
 const ini = require('ini');
 const config = require(process.cwd() + '/config.json');
+const roundTo = require("round-to");
 
 class Wallet {
     constructor(config) {
         this.config = config;
+		let loop = this.config.inLoop
         if(!this.config.coin) {
             let parts = this.config.name.split("-")
             this.config.coin = parts[0]
@@ -15,18 +17,30 @@ class Wallet {
             let parts = this.config.name.split("-")
             let node = parts[1]
             this.config.data_dir = `/root/${this.config.coin}/${node}`
+            if(loop) {
+				this.config.loopNumber = parts[2]
+			}
         }
         if(!this.config.daemonPath) {
             this.config.daemonPath = `/root/${this.config.coin}/${this.config.coin}d -datadir=${this.config.data_dir}`
+            if(loop) {
+					this.config.daemonPath += ` -conf=${this.config.data_dir}/${this.config.coin}${this.config.loopNumber}.conf -wallet=wallet${this.config.loopNumber}.dat`
+			}
         }
         if(!this.config.cliPath) {
             this.config.cliPath = `/root/${this.config.coin}/${this.config.coin}-cli -datadir=${this.config.data_dir}`
+            if(loop) {
+					this.config.cliPath+=` -conf=${this.config.data_dir}/${this.config.coin}${this.config.loopNumber}.conf -wallet=wallet${this.config.loopNumber}.dat`
+			}
         }
         if(!this.config.debugLogFile) {
             this.config.debugLogFile = `${this.config.data_dir}/debug.log`
         }
         if(!this.config.config_file){
             this.config.config_file = `${this.config.data_dir}/${this.config.coin}.conf`
+            if(loop) {
+				this.config.config_file = `${this.config.data_dir}/${this.config.coin}${this.config.loopNumber}.conf`
+			}
         }
         this.rpcClient = new RpcClient(this.config);
     }
@@ -110,7 +124,7 @@ class Wallet {
     }
 
     async startMasternodeAlias(alias) {
-        return await this.rpcCommand('startmasternode', ['alias', false, alias])
+        return await this.rpcCommand('startmasternode', ['alias', 'false', alias])
     }
 
     async stopNode() {
@@ -270,6 +284,135 @@ class Wallet {
         let cmd = `kill ${force?'-9' : ''} ${pid}`;
         let res = await this.execShellCmd(cmd);
         return res;
+    }
+
+    async calcMnRewards(limit = 10) {
+        let list = await this.rpcCommand("listtransactions",["*", limit])
+        let txs = []
+        for(let i in list) {
+            txs.push(list[i].txid)
+        }
+        let uniq = [...new Set(txs)];
+        txs = []
+        for (let i in uniq) {
+            let tx = uniq[i]
+            let txInfo = await this.rpcCommand("gettransaction", [tx])
+
+            if (txInfo.generated) {
+                let address
+                let label
+                let reward
+                let type
+                if(!txInfo.details[0].label && txInfo.details[0].account) {
+                    txInfo.details[0].label = txInfo.details[0].account
+                }
+                if(txInfo.details[0].category === 'generate') {
+                    txInfo.details[0].category = 'receive'
+                }
+                let found = false
+                if(txInfo.details.length === 1 && txInfo.details[0].label && txInfo.details[0].category === 'receive') {
+                    type = 'mn'
+                    reward = txInfo.details[0].amount
+                    address = txInfo.details[0].address
+                    label = txInfo.details[0].label
+                    found = true
+                } else if (txInfo.details[0].category === 'send' && txInfo.details[0].amount === 0 && txInfo.details[0].vout === 0) {
+                    type = 'stake'
+                    for (let j in txInfo.details) {
+                        let item = txInfo.details[j]
+                        if (item.label && !address) {
+                            address = item.address
+                            reward = txInfo.fee + txInfo.amount
+                            label = item.label
+                            found = true
+                        }
+                    }
+                } else {
+                    console.log("Unhandled TX", txInfo)
+                }
+                if(found) {
+                    let time = txInfo.time * 1000
+                    time = new Date(time).toISOString()
+                    console.log(time, type, reward, address, label)
+                    txs.push({
+                        txid: tx,
+                        time: txInfo.time,
+                        type,
+                        label,
+                        amount: reward
+                    })
+                }
+            }
+        }
+        let labelMap = {}
+        let rewardMap = {
+            mn: {
+                total: 0,
+                cnt: 0
+            },
+            stake: {
+                total: 0,
+                cnt: 0
+            }
+        }
+        let total = 0
+        let cnt = 0
+        for (let txid in txs) {
+            let item = txs[txid]
+            cnt++
+            if (!labelMap[item.label]) {
+                labelMap[item.label] = {
+                    total: 0,
+                    cnt: 0,
+                    mn: {
+                        total: 0,
+                        cnt: 0
+                    },
+                    stake: {
+                        total: 0,
+                        cnt: 0
+                    }
+                }
+            }
+            labelMap[item.label].total += item.amount
+            labelMap[item.label].cnt++
+            total += item.amount
+
+            let type = item.type
+            labelMap[item.label][type].cnt++;
+            labelMap[item.label][type].total += item.amount;
+
+            rewardMap[type].cnt++
+            rewardMap[type].total += item.amount
+        }
+
+        labelMap.total = {
+            total,
+            cnt,
+            mn: rewardMap.mn,
+            stake: rewardMap.stake
+        }
+
+        let start = txs[0].time
+        let end = txs[txs.length - 1].time
+
+        let days = roundTo((end - start) / 60 / 60 / 24, 2)
+
+        let list2 = []
+        for (let label in labelMap) {
+            let item = labelMap[label]
+            item.label = label
+            item.daily = roundTo(item.total / days, 2)
+            item.mn.daily = roundTo(item.mn.total / days, 2)
+            item.stake.daily = roundTo(item.stake.total / days, 2)
+            item.perc = roundTo(100 * item.total / labelMap.total.total, 2)
+            item.mn.perc = roundTo(100 * item.mn.total / item.total, 2)
+            item.stake.perc = roundTo(100 * item.stake.total / item.total, 2)
+            list2.push(item)
+        }
+
+        let out = {days, start, end, labelMap:list2, txs}
+        return out
     }
 
 }

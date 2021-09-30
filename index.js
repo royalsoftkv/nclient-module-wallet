@@ -340,3 +340,49 @@ NodeClient.registerNodeMethod('saveMasternodeFile', (params, ack)=>{
     NodeClient.commonHandler.writeFile(file, content, ack)
 })
 
+NodeClient.registerNodeMethod('createSnapshot', (params, cb) => {
+    new Promise(async resolve => {
+    let wallet_name = params.wallet
+        let config = {
+            name: wallet_name, active: true
+        }
+        let wallet = new Wallet(config)
+        console.log(`Stopping node`)
+        wallet.stopNode()
+        await wallet.waitForNodeStop((progress)=>{
+            console.log(progress)
+        })
+        let dir = `/root/${wallet.config.coin}/snapshot`
+        let dataDir = wallet.config.data_dir
+        console.log(`Cleanup snapshot dir`)
+        await NodeClient.commonHandler.execCmd(`rm -rf ${dir}`);
+        await NodeClient.commonHandler.execCmd(`mkdir ${dir}`);
+        // await NodeClient.commonHandler.execCmd(`mkdir ${dir}/blocks`);
+        // await NodeClient.commonHandler.execCmd(`mkdir ${dir}/chainstate`);
+        // await NodeClient.commonHandler.execCmd(`mkdir ${dir}/sporks`);
+        console.log(`Copy blockchain`)
+        await NodeClient.commonHandler.execCmd(`cp -r ${dataDir}/blocks ${dir}`);
+        await NodeClient.commonHandler.execCmd(`cp -r ${dataDir}/chainstate ${dir}`);
+        await NodeClient.commonHandler.execCmd(`cp -r ${dataDir}/sporks ${dir}`);
+        console.log(`Compressing blockchain`)
+        await NodeClient.commonHandler.execCmd(`cd ${dir} && tar -zcf snapshot.tar.gz blocks chainstate sporks`);
+        await NodeClient.commonHandler.execCmd(`rm -rf ${dir}/blocks`);
+        await NodeClient.commonHandler.execCmd(`rm -rf ${dir}/chainstate`);
+        await NodeClient.commonHandler.execCmd(`rm -rf ${dir}/sporks`);
+        console.log(`Starting node`)
+        await wallet.startNode();
+        let res = await NodeClient.commonHandler.execCmd(`ls -al ${dir}/snapshot.tar.gz`);
+        resolve(res)
+    }).then(res=>{
+        cb(res)
+    })
+
+})
+
+NodeClient.registerNodeMethod('calcMnRewards',  async (params)=>{
+    let wallet_name = params.wallet
+    let limit = params.limit
+    let wallet = global.getWallet(wallet_name)
+    return await wallet.calcMnRewards(limit)
+})
+
