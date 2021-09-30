@@ -7,3 +7,6 @@
 /device.json
 /nclient-module-wallet-1.0.47.tgz
 /tets.js
+/build.sh
+/increase_version.js
+/privkey.pem
