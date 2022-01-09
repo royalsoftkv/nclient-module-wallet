@@ -150,10 +150,10 @@ global.checkWallet = async (wallet) => {
     for(let i in lines) {
         let line = lines[i];
         if(line.indexOf(config.daemonPath)>=0 && line.indexOf("grep")===-1) {
-            return config;
+            return {running: true, config};
         }
     }
-    return false;
+    return {running: false, config};
 };
 
 global.stopDaemonAndWait = async(wallet) => {
@@ -264,6 +264,7 @@ global.getDaemonStatus = async (wallet) => {
     }
     res.daemonPid = daemonPid
     res.mnStatus = mnStatus
+    res.wallet = walletObj.config
 
     return res;
 };

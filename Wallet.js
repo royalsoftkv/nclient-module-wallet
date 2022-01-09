@@ -19,6 +19,7 @@ class Wallet {
             this.config.data_dir = `/root/${this.config.coin}/${node}`
             if(loop) {
 				this.config.loopNumber = parts[2]
+                this.config.loop = node
 			}
         }
         if(!this.config.daemonPath) {
@@ -411,7 +412,9 @@ class Wallet {
             list2.push(item)
         }
 
-        let out = {days, start, end, labelMap:list2, txs}
+        let daily = roundTo( total / days, 2)
+
+        let out = {total, days, daily, start, end, labelMap:list2, txs}
         return out
     }
 

@@ -60,7 +60,8 @@ class RpcClient {
         this.rpcport = data.rpcport
         this.rpcuser = data.rpcuser || null
         this.rpcpassword = data.rpcpassword || null
-        console.log(`Connecting RPC ${this.rpchost}:${this.rpcport} ${this.rpcuser}:${this.rpcpassword}`)
+        this.errorCnt = 0
+        //console.log(`Connecting RPC ${this.rpchost}:${this.rpcport} ${this.rpcuser}:${this.rpcpassword}`)
         // bitcoin_rpc.init(rpchost, rpcport, rpcuser, rpcpassword)
         // bitcoin_rpc.setTimeout(this.timeout)
     }
@@ -145,6 +146,9 @@ class RpcClient {
             this.rpcCall(method, params, options, (err, res) => {
                 //console.log('RPC response', err, res)
                 let response
+                if(counter[key]) {
+                    counter[key].cnt--
+                }
                 if (err !== null) {
                     response = {error: {message: err}};
                     console.log(`${this.config.name}: RPC error method=${method} params=${JSON.stringify(params)}`, err)
@@ -176,6 +180,12 @@ class RpcClient {
 
         //console.log('CALL rpcCall', method, params)
 
+        if(this.errorCnt > 10) {
+            cb(`To many errors ${this.errorCnt}`)
+			this.errorCnt = 0
+            return
+        }
+
         if(JSON.stringify(params) === "{}") {
             params = []
         }
@@ -201,14 +211,17 @@ class RpcClient {
         //console.log('Calking http request', postData, options)
 
         let req = http.request(options, (res) => {
+            this.errorCnt = 0
             cb_handleRequestResponse(res, callOptions, cb)
         })
 
-        req.on('error', function response (e) {
+        req.on('error',  (e) => {
+            this.errorCnt ++
             cb(e.message)
         })
 
-        req.setTimeout(this.timeout, function cb_onTimeout (e) {
+        req.setTimeout(this.timeout,  (e) => {
+            this.errorCnt ++
             cb('Timed out')
             req.abort()
         })
